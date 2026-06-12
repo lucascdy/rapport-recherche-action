@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur — Rapport Recherche Action</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ─── RESET & BASE ─────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#e8eaf0;color:#222;overflow:hidden}
+
+/* ─── APP LAYOUT ──────────────────────────────────────────────── */
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ─── FORM PANEL ──────────────────────────────────────────────── */
+.form-panel{width:430px;min-width:430px;background:#fff;display:flex;flex-direction:column;border-right:2px solid #dce0e8;overflow:hidden}
+.form-head{background:#1B2A4A;color:#fff;padding:18px 20px;flex-shrink:0}
+.form-head h1{font-size:16px;font-weight:700;letter-spacing:.3px}
+.form-head p{font-size:11px;opacity:.75;margin-top:3px}
+.form-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.form-body::-webkit-scrollbar{width:5px}
+.form-body::-webkit-scrollbar-thumb{background:#c5cadc;border-radius:3px}
+.fsec{padding:14px 20px;border-bottom:1px solid #f0f2f7}
+.fsec h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#C8922A;margin-bottom:10px}
+.fg{margin-bottom:8px}
+.fg label{display:block;font-size:11px;font-weight:600;color:#4a5568;margin-bottom:3px}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:5px;font-size:11.5px;font-family:inherit;background:#fafbfc;transition:border-color .2s,background .2s;color:#1a1a1a}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#1B2A4A;background:#fff}
+.fg textarea{resize:vertical;min-height:72px;line-height:1.55}
+.frow{display:flex;gap:8px}
+.frow .fg{flex:1}
+.btn-bar{padding:14px 20px 18px;border-top:1px solid #e8eaf0;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.btn-pri{padding:11px;background:#1B2A4A;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;letter-spacing:.3px}
+.btn-pri:hover{background:#253d6b}
+.btn-sec{padding:11px;background:#C8922A;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;letter-spacing:.3px}
+.btn-sec:hover{background:#d9a035}
+.btn-ai{padding:13px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px;position:relative;overflow:hidden}
+.btn-ai:hover{background:linear-gradient(135deg,#4c1d95,#6d28d9);transform:translateY(-1px);box-shadow:0 4px 12px rgba(124,58,237,.35)}
+.btn-ai:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.api-section{padding:14px 20px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-bottom:2px solid #c4b5fd;flex-shrink:0}
+.api-section h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7c3aed;margin-bottom:8px}
+.api-key-wrap{position:relative}
+.api-key-wrap input{width:100%;padding:8px 36px 8px 10px;border:1.5px solid #c4b5fd;border-radius:5px;font-size:11.5px;font-family:monospace;background:#fff;color:#1a1a1a}
+.api-key-wrap input:focus{outline:none;border-color:#7c3aed}
+.api-key-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#7c3aed;font-size:14px;padding:0;line-height:1}
+.api-hint{font-size:10px;color:#7c3aed;opacity:.8;margin-top:5px}
+.ai-status{font-size:11px;color:#7c3aed;font-weight:600;text-align:center;padding:6px;background:#ede9fe;border-radius:4px;margin-top:6px;display:none}
+.ai-status.on{display:block}
+.ai-progress{height:3px;background:#e9d5ff;border-radius:2px;margin-top:6px;overflow:hidden;display:none}
+.ai-progress.on{display:block}
+.ai-progress-bar{height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:2px;width:0%;transition:width .4s ease;animation:progshimmer 1.5s infinite}
+@keyframes progshimmer{0%{opacity:.7}50%{opacity:1}100%{opacity:.7}}
+
+/* ─── STOCK SEARCH ────────────────────────────────────────────── */
+.stock-sec{padding:12px 20px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-bottom:2px solid #818cf8;flex-shrink:0}
+.stock-sec h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#4338ca;margin-bottom:8px}
+.stock-wrap{position:relative}
+.stock-input{width:100%;padding:9px 36px 9px 34px;border:1.5px solid #818cf8;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;color:#1a1a1a;outline:none;transition:border-color .2s}
+.stock-input:focus{border-color:#4338ca;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.stock-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none}
+.stock-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#999;font-size:16px;line-height:1;padding:0;display:none}
+.stock-clear.vis{display:block}
+.stock-dd{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1.5px solid #818cf8;border-radius:6px;max-height:260px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.stock-dd.open{display:block}
+.stock-dd::-webkit-scrollbar{width:4px}
+.stock-dd::-webkit-scrollbar-thumb{background:#c7d2fe;border-radius:2px}
+.stock-row{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f2f8;transition:background .1s}
+.stock-row:last-child{border-bottom:none}
+.stock-row:hover,.stock-row.hi{background:#eef2ff}
+.stock-rname{font-size:11.5px;font-weight:600;color:#1e1b4b}
+.stock-rmeta{font-size:9.5px;color:#888;margin-top:1px}
+.stock-rticker{font-size:11px;font-weight:800;color:#4338ca;background:#e0e7ff;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-left:8px}
+.stock-flag{font-size:13px;margin-right:6px}
+.stock-hint{font-size:10px;color:#6366f1;opacity:.8;margin-top:5px}
+.stock-count{font-size:10px;color:#6366f1;font-weight:600;text-align:center;padding:4px;background:#eef2ff;border-top:1px solid #e0e7ff;display:none}
+.stock-count.on{display:block}
+
+/* ─── PREVIEW PANEL ───────────────────────────────────────────── */
+.preview-panel{flex:1;overflow-y:auto;background:#d8dbe5;padding:24px 32px}
+.preview-panel::-webkit-scrollbar{width:6px}
+.preview-panel::-webkit-scrollbar-thumb{background:#b0b5c8;border-radius:3px}
+.preview-head{text-align:center;margin-bottom:20px;color:#5a6478;font-size:13px;font-weight:500;letter-spacing:.3px}
+.empty-state{text-align:center;padding:80px 40px;color:#8892a4;font-family:'Segoe UI',sans-serif}
+.empty-state .icon{font-size:52px;margin-bottom:14px}
+.empty-state h2{font-size:17px;font-weight:600;margin-bottom:6px}
+.empty-state p{font-size:12px}
+
+/* ─── REPORT PAGE ─────────────────────────────────────────────── */
+.rpage{width:794px;min-height:1122px;background:#fff;margin:0 auto 24px;box-shadow:0 3px 16px rgba(0,0,0,.18);position:relative;font-family:'Georgia','Times New Roman',serif;overflow:hidden}
+
+/* ─── REPORT HEADER ───────────────────────────────────────────── */
+.r-hdr{background:#1B2A4A;color:#fff;padding:9px 22px;display:flex;justify-content:space-between;align-items:center}
+.r-hdr-title{font-size:12px;font-weight:700;font-family:'Segoe UI',sans-serif;letter-spacing:.2px}
+.r-hdr-firm{font-size:10px;opacity:.9;font-family:'Segoe UI',sans-serif}
+
+/* ─── COVER PAGE ──────────────────────────────────────────────── */
+.cover-title-bar{text-align:center;padding:14px 22px 12px;border-bottom:3px solid #C8922A}
+.cover-title-bar h1{font-size:20px;color:#1B2A4A;font-family:'Segoe UI',sans-serif;font-weight:800;letter-spacing:.2px}
+.cover-banner{display:flex;border-bottom:2.5px solid #1B2A4A;min-height:130px}
+.cb-left{width:196px;min-width:196px;background:#f5f7fb;padding:14px 16px;border-right:1px solid #dde2ec}
+.cb-center{flex:1;padding:14px 16px;border-right:1px solid #dde2ec}
+.cb-right{width:192px;min-width:192px;background:#f5f7fb;padding:14px 16px}
+.reco-badge{display:inline-block;padding:5px 14px;border-radius:4px;color:#fff;font-size:22px;font-weight:900;font-family:'Segoe UI',sans-serif;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+.c-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#C8922A;margin-top:8px;font-family:'Segoe UI',sans-serif}
+.c-val{font-size:11px;color:#1B2A4A;font-weight:600;font-family:'Segoe UI',sans-serif;margin-top:1px}
+.cover-co-name{font-size:18px;font-weight:800;color:#1B2A4A;font-family:'Segoe UI',sans-serif;line-height:1.2}
+.analyst-sig{margin-top:auto;padding-top:12px}
+.analyst-name{font-size:11px;font-weight:700;color:#1B2A4A;font-family:'Segoe UI',sans-serif}
+.analyst-role{font-size:9.5px;color:#666;font-family:'Segoe UI',sans-serif;margin-top:1px}
+.analyst-firm{font-size:9px;color:#C8922A;font-weight:700;font-family:'Segoe UI',sans-serif;margin-top:2px}
+.ptable{width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;font-size:10px;margin-top:10px}
+.ptable th{background:#1B2A4A;color:#fff;padding:4px 8px;text-align:left;font-size:8.5px;font-weight:600}
+.ptable td{padding:4px 8px;border-bottom:1px solid #eaeef5;color:#333;vertical-align:middle}
+.ptable tr:nth-child(even) td{background:#f8f9fc}
+
+/* ─── KEY FACTS ───────────────────────────────────────────────── */
+.key-facts{background:#f5f7fb;border-top:1px solid #dde2ec;border-bottom:2.5px solid #1B2A4A;padding:14px 22px}
+.kf-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1B2A4A;margin-bottom:9px;font-family:'Segoe UI',sans-serif}
+.kf-item{display:flex;align-items:flex-start;margin-bottom:7px;font-size:10.5px;font-family:'Segoe UI',sans-serif;color:#333;line-height:1.5}
+.kf-dot{width:7px;height:7px;background:#C8922A;border-radius:50%;margin-top:4px;margin-right:10px;flex-shrink:0}
+
+/* ─── CONTENT ─────────────────────────────────────────────────── */
+.r-content{padding:20px 26px 50px}
+.intro-note{font-size:9.5px;color:#888;font-family:'Segoe UI',sans-serif;font-style:italic;line-height:1.55;margin-top:10px;padding-top:10px;border-top:1px solid #eee}
+
+/* ─── SECTION BLOCKS ──────────────────────────────────────────── */
+.sec-title{font-size:15px;font-weight:800;color:#1B2A4A;font-family:'Segoe UI',sans-serif;padding-bottom:6px;border-bottom:2.5px solid #C8922A;margin-bottom:10px;letter-spacing:.2px}
+.sec-body{font-size:10.5px;line-height:1.72;color:#222;font-family:'Georgia','Times New Roman',serif}
+.sec-gap{height:22px}
+
+/* ─── STANDARD TABLES ─────────────────────────────────────────── */
+.std-tbl{width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;font-size:9.5px;margin-top:10px}
+.std-tbl th{background:#1B2A4A;color:#fff;padding:5px 10px;text-align:left;font-weight:600;font-size:9px}
+.std-tbl td{padding:5px 10px;border-bottom:1px solid #eaeef5;vertical-align:middle}
+.std-tbl tr:nth-child(even) td{background:#f8f9fc}
+.reco-tbl{width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;font-size:9.5px;margin-top:10px}
+.reco-tbl th{background:#1B2A4A;color:#fff;padding:5px 10px;font-weight:600}
+.reco-tbl td{padding:5px 10px;border-bottom:1px solid #eaeef5}
+.reco-tbl tr:nth-child(even) td{background:#f8f9fc}
+
+/* ─── COI SELECT ──────────────────────────────────────────────── */
+.coi-sel{border:1px solid #ddd;border-radius:3px;padding:3px 6px;font-size:9px;font-family:'Segoe UI',sans-serif;cursor:pointer;background:#fff}
+
+/* ─── DISCLAIMER ──────────────────────────────────────────────── */
+.disclaimer{background:#f8f9fc;border:1px solid #dde2ec;border-radius:5px;padding:12px 14px;font-size:8.5px;color:#666;line-height:1.6;font-family:'Segoe UI',sans-serif;margin-top:10px}
+
+/* ─── FOOTER ──────────────────────────────────────────────────── */
+.r-ftr{position:absolute;bottom:0;left:0;right:0;background:#f5f7fb;border-top:1px solid #dde2ec;padding:6px 22px;display:flex;justify-content:space-between;align-items:center;font-size:8.5px;color:#777;font-family:'Segoe UI',sans-serif}
+.r-ftr-pg{font-size:8px;color:#aaa}
+
+/* ─── CHARTS ──────────────────────────────────────────────────── */
+.chart-row{display:flex;gap:12px;margin-bottom:12px}
+.chart-box{background:#f8f9fc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;flex:1;min-width:0}
+.chart-box-title{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1B2A4A;margin-bottom:7px;padding-bottom:5px;border-bottom:1.5px solid #C8922A;font-family:'Segoe UI',sans-serif}
+.chart-interp{font-size:8px;color:#444;font-style:italic;line-height:1.55;font-family:'Segoe UI',sans-serif;margin-top:7px;padding-top:6px;border-top:1px dashed #dde2ec;min-height:12px}
+/* ─── LOADING ─────────────────────────────────────────────────── */
+.loading{display:none;position:fixed;inset:0;background:rgba(15,20,35,.8);z-index:9999;align-items:center;justify-content:center;flex-direction:column;color:#fff;gap:12px}
+.loading.on{display:flex}
+.spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{font-size:15px;font-weight:600}
+.loading small{font-size:11px;opacity:.7}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading" id="overlay">
+  <div class="spinner"></div>
+  <p>Génération du PDF en cours…</p>
+  <small>Veuillez patienter, cela peut prendre quelques secondes</small>
+</div>
+
+<!-- App -->
+<div class="app">
+
+  <!-- ══════════════════════════════════════════════
+       FORM PANEL
+  ══════════════════════════════════════════════ -->
+  <div class="form-panel">
+    <div class="form-head">
+      <h1>Rapport Recherche Action</h1>
+      <p>Remplissez les infos de base, Claude rédige l'analyse</p>
+    </div>
+
+    <!-- API KEY -->
+    <div class="api-section">
+      <h3>Clé API Anthropic</h3>
+      <div class="api-key-wrap">
+        <input type="password" id="api-key" placeholder="sk-ant-api03-..." autocomplete="off">
+        <button class="api-key-toggle" onclick="toggleApiKeyVis()" title="Afficher/masquer">👁</button>
+      </div>
+      <div class="api-hint">Votre clé reste locale (jamais envoyée ailleurs qu'à Anthropic)</div>
+      <div class="ai-status" id="ai-status">⏳ Génération en cours…</div>
+      <div class="ai-progress" id="ai-progress"><div class="ai-progress-bar" id="ai-bar"></div></div>
+    </div>
+
+    <div class="form-body">
+
+      <!-- STOCK SEARCH -->
+      <div class="stock-sec">
+        <h3>🔍 Choisir une société cotée</h3>
+        <div class="stock-wrap">
+          <span class="stock-icon">🔎</span>
+          <input class="stock-input" id="stock-q" type="text" placeholder="Nom ou ticker… (ex: LVMH, Airbus, ASML, Novo…)" autocomplete="off"
+            oninput="filterStocks()" onkeydown="navStock(event)" onfocus="filterStocks()">
+          <button class="stock-clear" id="stock-clr" onclick="clearStock()" title="Effacer">×</button>
+          <div class="stock-dd" id="stock-dd"></div>
+        </div>
+        <div class="stock-hint">PEA-éligibles · France &amp; Europe · CAC 40, SBF 120, DAX, AEX, IBEX…</div>
+      </div>
+
+      <!-- Société -->
+      <div class="fsec">
+        <h3>Société &amp; Marché</h3>
+        <div class="fg"><label>Nom de l'entreprise</label><input id="f-co" value="Schneider Electric"></div>
+        <div class="frow">
+          <div class="fg"><label>Ticker</label><input id="f-ticker" value="SU"></div>
+          <div class="fg"><label>Place de cotation</label><input id="f-exch" value="PAR"></div>
+        </div>
+        <div class="fg"><label>ISIN</label><input id="f-isin" value="FR0000121972"></div>
+        <div class="fg"><label>Secteur GICS</label><input id="f-sector" value="Industrials"></div>
+        <div class="fg"><label>Région</label><input id="f-region" value="Europe / France"></div>
+      </div>
+
+      <!-- Analyste -->
+      <div class="fsec">
+        <h3>Analyste</h3>
+        <div class="frow">
+          <div class="fg"><label>Prénom</label><input id="f-afirst" value="Lucas"></div>
+          <div class="fg"><label>Nom</label><input id="f-alast" value="Coudy"></div>
+        </div>
+        <div class="fg"><label>Titre / Fonction</label><input id="f-atitle" value="Equity Analyst"></div>
+        <div class="fg"><label>Société d'analyse</label><input id="f-firm" value="COUDY RESEARCH"></div>
+      </div>
+
+      <!-- Recommandation -->
+      <div class="fsec">
+        <h3>Recommandation &amp; Prix</h3>
+        <div class="fg">
+          <label>Recommandation</label>
+          <select id="f-reco">
+            <option value="Acheter" selected>Acheter</option>
+            <option value="Accumuler">Accumuler</option>
+            <option value="Neutre">Neutre</option>
+            <option value="Alléger">Alléger</option>
+            <option value="Vente">Vente</option>
+          </select>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Cours actuel</label><input id="f-price" value="185,00 €"></div>
+          <div class="fg"><label>Prix cible</label><input id="f-target" value="230,00 €"></div>
+        </div>
+        <div class="fg"><label>Borne 52 semaines (bas – haut)</label><input id="f-range" value="148,50 € – 198,30 €"></div>
+        <div class="fg"><label>Volume moyen (30j)</label><input id="f-vol" value="1,2M actions / jour"></div>
+        <div class="fg"><label>Date du rapport</label><input type="date" id="f-date" value="2026-03-18"></div>
+      </div>
+
+      <!-- Résumé -->
+      <div class="fsec">
+        <h3>Résumé / Faits Marquants</h3>
+        <div class="fg"><label>Actualité clé 1</label>
+          <textarea id="f-fact1">Publication des résultats annuels 2025 supérieurs aux attentes : CA de 38,2 Md€ (+9 % org.), marge EBITA ajustée à 18,2 % (+80 bps). Dividende relevé à 3,90 € par action, en hausse de 10 % sur un an.</textarea>
+        </div>
+        <div class="fg"><label>Actualité clé 2</label>
+          <textarea id="f-fact2">Acquisition stratégique de GridTech Systems (1,4 Md$) pour renforcer le portefeuille de gestion intelligente de l'énergie en Amérique du Nord, ciblant la croissance explosive du segment Data Centers & Infrastructure.</textarea>
+        </div>
+      </div>
+
+      <!-- Présentation société -->
+      <div class="fsec">
+        <h3>Présentation de la société</h3>
+        <div class="fg"><textarea id="f-copres">Schneider Electric SE est un groupe industriel mondial spécialisé dans la gestion de l'énergie et l'automatisation. Fondé en 1836 et coté sur Euronext Paris (indice CAC 40), le groupe emploie plus de 150 000 collaborateurs dans près de 100 pays et réalise un chiffre d'affaires supérieur à 38 Md€. Schneider Electric est présent sur quatre marchés principaux : les bâtiments, les data centers, les infrastructures critiques et l'industrie. Son modèle économique repose sur une combinaison équilibrée de produits, de systèmes intégrés et de services numériques à haute valeur ajoutée, notamment via sa plateforme logicielle EcoStruxure qui connecte plus de 2 millions de bâtiments à travers le monde.</textarea></div>
+      </div>
+
+      <!-- Industrie -->
+      <div class="fsec">
+        <h3>Présentation de l'industrie</h3>
+        <div class="fg"><textarea id="f-indpres">Le secteur de la gestion de l'énergie bénéficie de vents porteurs structurels sans précédent : la transition énergétique mondiale, l'explosion de la demande en data centers liée à l'IA générative, et des politiques industrielles favorables en Europe (Green Deal) et aux États-Unis (IRA). Le marché adressable total dépasse 600 Md$ d'ici 2030. La concurrence reste intense avec Siemens, Eaton, ABB et Honeywell, mais Schneider Electric bénéficie d'un avantage concurrentiel durable grâce à l'intégration de sa plateforme EcoStruxure et à sa position de leader mondial dans les solutions d'efficacité énergétique.</textarea></div>
+      </div>
+
+      <!-- Argumentaire -->
+      <div class="fsec">
+        <h3>Argumentaire d'investissement</h3>
+        <div class="fg"><textarea id="f-case">Notre thèse d'investissement repose sur trois piliers fondamentaux. (1) Exposition unique aux mégatendances : Schneider Electric est l'un des rares industriels à bénéficier simultanément de la transition énergétique et de la révolution de l'IA via la croissance des data centers (20-25 % p.a. du segment). (2) Transformation vers un modèle récurrent : Software & Services représente désormais 30 % du CA, améliorant structurellement la visibilité des revenus et la qualité des marges. (3) Discipline d'allocation du capital : rachats d'actions, acquisitions bolt-on ciblées et dividende en croissance régulière constituent un package attractif pour l'actionnaire de long terme.</textarea></div>
+      </div>
+
+      <!-- Analyse financière -->
+      <div class="fsec">
+        <h3>Analyse financière</h3>
+        <div class="fg"><textarea id="f-fin">Sur l'exercice 2025, Schneider Electric affiche une performance financière solide : CA de 38,2 Md€ en croissance organique de 9 %, marge EBITA ajustée de 18,2 % (vs 17,4 % en 2024) et FCF de 5,1 Md€. La structure bilancielle est saine avec un ratio dette nette / EBITDA de 1,2x. Pour 2026, nous anticipons une accélération de la croissance organique à 10-12 % portée par le segment Energy Management (Data Centers, Bâtiments intelligents) et une poursuite de l'expansion des marges vers 19,0 %. Le dividende 2025 de 3,90 € représente un rendement de 2,1 % au cours actuel, avec une politique de distribution progressive bien ancrée.</textarea></div>
+      </div>
+
+      <!-- Valorisation -->
+      <div class="fsec">
+        <h3>Valorisation</h3>
+        <div class="fg"><textarea id="f-val">Notre valorisation s'appuie sur une approche multi-critères. (1) DCF : en retenant un WACC de 7,5 % et un taux de croissance terminal de 2,5 %, nous obtenons une valeur intrinsèque de 228 € par action. (2) Comparables boursiers : sur la base d'un multiple EV/EBITDA 2026 de 18x (prime de 10 % vs peers justifiée par la qualité du modèle), nous obtenons 225 €. (3) PER cible de 26x sur le BPA 2026 estimé à 8,80 €, soit 229 €. La moyenne pondérée de ces approches ressort à 227 €, arrondie à 230 € pour notre objectif de cours. Le potentiel de hausse de +24 % justifie pleinement notre recommandation ACHETER.</textarea></div>
+      </div>
+
+      <!-- Risques -->
+      <div class="fsec">
+        <h3>Analyse des risques</h3>
+        <div class="fg"><textarea id="f-risk">Les principaux risques à notre scénario central sont : (1) Ralentissement macro en Chine (~12 % du CA), dans un contexte de tensions commerciales persistantes. (2) Intensification de la concurrence des fabricants chinois dans les équipements électriques d'entrée de gamme. (3) Risque d'exécution de l'intégration de GridTech Systems : les synergies annoncées (150 M$ à 3 ans) pourraient être retardées. (4) Hausse des taux d'intérêt impactant le coût du capital et les multiples de valorisation. (5) Concentration sectorielle : la forte exposition aux data centers (~25 % du CA estimé 2026) crée une dépendance aux cycles d'investissement des hyperscalers.</textarea></div>
+      </div>
+
+      <!-- Recommandation finale -->
+      <div class="fsec">
+        <h3>Recommandation finale</h3>
+        <div class="fg"><textarea id="f-rec">Nous initions la couverture de Schneider Electric avec une recommandation ACHETER et un objectif de cours de 230 €, offrant un potentiel de hausse de +24 % par rapport au cours actuel de 185 €. Schneider Electric constitue l'un des investissements industriels les plus attractifs de la cote européenne pour les 12 prochains mois. Le groupe combine une exposition unique aux mégatendances de l'efficacité énergétique et des data centers, un modèle économique en transformation vers plus de récurrence, et un management avec un solide track record d'exécution opérationnelle. Le prochain catalyseur identifié sera la publication des résultats du premier trimestre 2026 (attendue en avril), qui devrait confirmer une dynamique commerciale soutenue.</textarea></div>
+      </div>
+
+    </div><!-- /form-body -->
+
+    <div class="btn-bar">
+      <button class="btn-ai" id="btn-ai" onclick="generateWithAI()">✦ Générer l'analyse avec Claude</button>
+      <button class="btn-pri" onclick="generateReport()">⟳ Rafraîchir l'aperçu</button>
+      <button class="btn-sec" onclick="generatePDF()">⬇ Télécharger en PDF</button>
+    </div>
+  </div><!-- /form-panel -->
+
+  <!-- ══════════════════════════════════════════════
+       PREVIEW PANEL
+  ══════════════════════════════════════════════ -->
+  <div class="preview-panel">
+    <div class="preview-head">Aperçu du rapport — Format A4</div>
+    <div id="preview">
+      <div class="empty-state">
+        <div class="icon">📄</div>
+        <h2>Aucun rapport généré</h2>
+        <p>Remplissez le formulaire et cliquez sur « Générer l'aperçu »</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+/* ── CONSTANTS ───────────────────────────────────────────── */
+const RECO_COLORS = {
+  'Acheter':   '#1E7E34',
+  'Accumuler': '#5CB85C',
+  'Neutre':    '#6C757D',
+  'Alléger':   '#E6820E',
+  'Vente':     '#C0392B'
+};
+
+/* ── HELPERS ─────────────────────────────────────────────── */
+function v(id){ return document.getElementById(id).value.trim() || '—'; }
+
+function fmtDate(s){
+  if(!s) return new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const d = new Date(s + 'T12:00:00');
+  return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+}
+
+function esc(t){
+  return String(t)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
+function getData(){
+  return {
+    co:      v('f-co'),
+    ticker:  v('f-ticker'),
+    exch:    v('f-exch'),
+    isin:    v('f-isin'),
+    sector:  v('f-sector'),
+    region:  v('f-region'),
+    afirst:  document.getElementById('f-afirst').value.trim(),
+    alast:   document.getElementById('f-alast').value.trim(),
+    atitle:  v('f-atitle'),
+    firm:    v('f-firm'),
+    reco:    v('f-reco'),
+    price:   v('f-price'),
+    target:  v('f-target'),
+    range:   v('f-range'),
+    vol:     v('f-vol'),
+    date:    fmtDate(document.getElementById('f-date').value),
+    fact1:   document.getElementById('f-fact1').value.trim(),
+    fact2:   document.getElementById('f-fact2').value.trim(),
+    copres:  document.getElementById('f-copres').value.trim(),
+    indpres: document.getElementById('f-indpres').value.trim(),
+    inv:     document.getElementById('f-case').value.trim(),
+    fin:     document.getElementById('f-fin').value.trim(),
+    val:     document.getElementById('f-val').value.trim(),
+    risk:    document.getElementById('f-risk').value.trim(),
+    rec:     document.getElementById('f-rec').value.trim(),
+  };
+}
+
+/* ── SHARED PARTS ────────────────────────────────────────── */
+function hdr(d){
+  return `<div class="r-hdr">
+    <span class="r-hdr-title">${esc(d.co)} — Recherche Action</span>
+    <span class="r-hdr-firm">${esc(d.firm)}</span>
+  </div>`;
+}
+
+function ftr(d, pg, total){
+  return `<div class="r-ftr">
+    <span>${esc(d.firm)}</span>
+    <span class="r-ftr-pg">Page ${pg} / ${total}</span>
+    <span>${esc(d.afirst)} ${esc(d.alast)}</span>
+  </div>`;
+}
+
+/* ── PAGE BUILDERS ───────────────────────────────────────── */
+function pageCover(d, total){
+  const rc = RECO_COLORS[d.reco] || '#1B2A4A';
+  const analyst = `${d.afirst} ${d.alast}`.trim();
+  const bloomberg = d.ticker + (d.exch==='PAR'?' FP':d.exch==='VIE'?' AV':d.exch==='NYSE'?' UN':' '+d.exch);
+  return `<div class="rpage" id="rp-1">
+  ${hdr(d)}
+  <div class="cover-title-bar"><h1>${esc(d.co)} — Recherche Action</h1></div>
+
+  <div class="cover-banner">
+    <!-- LEFT -->
+    <div class="cb-left" style="display:flex;flex-direction:column;">
+      <div>
+        <div><span class="reco-badge" style="background:${rc}">${esc(d.reco)}</span></div>
+        <div class="c-lbl">Région</div><div class="c-val">${esc(d.region)}</div>
+        <div class="c-lbl">Secteur GICS</div><div class="c-val">${esc(d.sector)}</div>
+      </div>
+      <div class="analyst-sig" style="margin-top:10px">
+        <div class="analyst-name">${esc(analyst)}</div>
+        <div class="analyst-role">${esc(d.atitle)}</div>
+        <div class="analyst-firm">${esc(d.firm)}</div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="cb-center">
+      <div class="cover-co-name">${esc(d.co)}</div>
+      <div class="c-lbl" style="margin-top:10px">Reuters / Bloomberg</div>
+      <div class="c-val">${esc(d.ticker+'.'+d.exch)} / ${esc(bloomberg)}</div>
+      <div class="c-lbl">Place de cotation</div><div class="c-val">${esc(d.exch)}</div>
+      <div class="c-lbl">Ticker / ISIN</div><div class="c-val">${esc(d.ticker)} / ${esc(d.isin)}</div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="cb-right">
+      <div class="c-lbl">Date du rapport</div>
+      <div class="c-val" style="margin-bottom:10px">${esc(d.date)}</div>
+      <table class="ptable">
+        <thead><tr><th>Indicateur</th><th>Valeur</th></tr></thead>
+        <tbody>
+          <tr><td>Cours actuel</td><td><strong>${esc(d.price)}</strong></td></tr>
+          <tr><td>Prix cible (12m)</td><td><strong style="color:${rc}">${esc(d.target)}</strong></td></tr>
+          <tr><td>52 semaines</td><td>${esc(d.range)}</td></tr>
+          <tr><td>Vol. moyen 30j</td><td>${esc(d.vol)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- KEY FACTS -->
+  <div class="key-facts">
+    <div class="kf-title">Évaluation financière ${esc(d.co)} — Faits marquants récents</div>
+    ${d.fact1?`<div class="kf-item"><div class="kf-dot"></div><div>${esc(d.fact1)}</div></div>`:''}
+    ${d.fact2?`<div class="kf-item"><div class="kf-dot"></div><div>${esc(d.fact2)}</div></div>`:''}
+  </div>
+
+  <div class="r-content">
+    <div class="intro-note">
+      Ce rapport de recherche a été préparé par <strong>${esc(analyst)}</strong>, ${esc(d.atitle)},
+      pour le compte de <strong>${esc(d.firm)}</strong>. Il est destiné à des investisseurs professionnels
+      et ne constitue pas un conseil en investissement personnalisé au sens de la directive MIF II.
+      Toute recommandation est susceptible d'être révisée en fonction de l'évolution des marchés
+      et des données fondamentales de l'émetteur.
+    </div>
+  </div>
+
+  ${ftr(d,1,total)}
+</div>`;
+}
+
+function pageTwo(d, total){
+  return `<div class="rpage" id="rp-2">
+  ${hdr(d)}
+  <div class="r-content">
+    <div class="sec-title">1. Présentation de la société</div>
+    <div class="sec-body">${esc(d.copres)}</div>
+    <div class="sec-gap"></div>
+    <div class="sec-title">2. Présentation de l'industrie</div>
+    <div class="sec-body">${esc(d.indpres)}</div>
+  </div>
+  ${ftr(d,2,total)}
+</div>`;
+}
+
+function pageThree(d, total){
+  return `<div class="rpage" id="rp-6">
+  ${hdr(d)}
+  <div class="r-content">
+    <div class="sec-title">4. Argumentaire d'investissement</div>
+    <div class="sec-body">${esc(d.inv)}</div>
+    <div class="sec-gap"></div>
+    <div class="sec-title">5. Analyse financière</div>
+    <div class="sec-body">${esc(d.fin)}</div>
+  </div>
+  ${ftr(d,6,total)}
+</div>`;
+}
+
+function pageFour(d, total){
+  return `<div class="rpage" id="rp-7">
+  ${hdr(d)}
+  <div class="r-content">
+    <div class="sec-title">6. Valorisation</div>
+    <div class="sec-body">${esc(d.val)}</div>
+    <div class="sec-gap"></div>
+    <div class="sec-title">7. Analyse des risques</div>
+    <div class="sec-body">${esc(d.risk)}</div>
+  </div>
+  ${ftr(d,7,total)}
+</div>`;
+}
+
+function pageFive(d, total){
+  const rc = RECO_COLORS[d.reco] || '#1B2A4A';
+  const rows = [
+    ['Acheter',   '#1E7E34', 'Supérieur à +15 %',        'Forte surperformance attendue'],
+    ['Accumuler', '#5CB85C', 'Entre 0 % et +15 %',       'Surperformance modérée attendue'],
+    ['Neutre',    '#6C757D', 'Entre −5 % et +5 %',       'Performance en ligne avec le marché'],
+    ['Alléger',   '#E6820E', 'Entre 0 % et −15 %',       'Sous-performance modérée attendue'],
+    ['Vente',     '#C0392B', 'Inférieur à −15 %',        'Forte sous-performance attendue'],
+  ];
+  const recoRows = rows.map(([r,c,p,s])=>`<tr>
+    <td style="font-weight:700;color:${c}">${r}</td>
+    <td>${p}</td><td>${s}</td>
+  </tr>`).join('');
+
+  return `<div class="rpage" id="rp-8">
+  ${hdr(d)}
+  <div class="r-content">
+    <div class="sec-title">8. Recommandation</div>
+    <div class="sec-body">${esc(d.rec)}</div>
+
+    <div class="sec-gap"></div>
+    <div class="sec-title" style="font-size:13px">Système de recommandations</div>
+    <table class="reco-tbl">
+      <thead><tr><th>Recommandation</th><th>Potentiel vs cours actuel</th><th>Signification</th></tr></thead>
+      <tbody>${recoRows}</tbody>
+    </table>
+
+    <div class="sec-gap"></div>
+    <div class="sec-title" style="font-size:13px">Méthodes d'évaluation utilisées</div>
+    <table class="std-tbl">
+      <thead><tr><th>Méthode</th><th>Description synthétique</th></tr></thead>
+      <tbody>
+        <tr><td><strong>DCF — Discounted Cash Flows</strong></td><td>Actualisation des flux de trésorerie libres sur horizon 10 ans + valeur terminale</td></tr>
+        <tr><td><strong>Comparables boursiers</strong></td><td>Multiples EV/EBITDA et PER appliqués à un échantillon de pairs cotés</td></tr>
+        <tr><td><strong>Somme des parties (SOP)</strong></td><td>Valorisation distincte de chaque segment d'activité / division</td></tr>
+        <tr><td><strong>Multiples de transactions</strong></td><td>Multiples issus de transactions M&amp;A récentes dans le secteur</td></tr>
+        <tr><td><strong>Actualisation des dividendes (DDM)</strong></td><td>Modèle de Gordon-Shapiro pour titres à rendement élevé et croissance stable</td></tr>
+      </tbody>
+    </table>
+  </div>
+  ${ftr(d,8,total)}
+</div>`;
+}
+
+function pageSix(d, total){
+  const analyst = `${d.afirst} ${d.alast}`.trim();
+  const yr = new Date().getFullYear();
+
+  function coiRow(label){
+    return `<tr>
+      <td>${label}</td>
+      <td>
+        <select class="coi-sel" onchange="this.style.color=this.value==='Oui'?'#1E7E34':'#C0392B';this.style.fontWeight='700'">
+          <option value="Non" style="color:#C0392B;font-weight:700">Non</option>
+          <option value="Oui" style="color:#1E7E34;font-weight:700">Oui</option>
+        </select>
+      </td>
+    </tr>`;
+  }
+
+  return `<div class="rpage" id="rp-9">
+  ${hdr(d)}
+  <div class="r-content">
+
+    <div class="sec-title">Tableau de détection des conflits d'intérêts</div>
+    <table class="std-tbl">
+      <thead><tr><th>Type de conflit potentiel</th><th style="width:80px;text-align:center">Statut</th></tr></thead>
+      <tbody>
+        ${coiRow('Mandat de conseil Corporate Finance sur cet émetteur')}
+        ${coiRow("Intérêt personnel de l'analyste dans le titre couvert")}
+        ${coiRow("Détention d'actifs de l'émetteur par la société d'analyse (> 5 %)")}
+        ${coiRow('Communication préalable du rapport à l\'émetteur avant diffusion')}
+        ${coiRow('Contrat de liquidité ou activité de market-making sur le titre')}
+      </tbody>
+    </table>
+
+    <div class="sec-gap"></div>
+    <div class="sec-title" style="font-size:13px">Avertissement légal — Disclaimer</div>
+    <div class="disclaimer">
+      <strong>CE DOCUMENT EST DESTINÉ AUX INVESTISSEURS PROFESSIONNELS UNIQUEMENT — NE PAS DIFFUSER AU PUBLIC</strong><br><br>
+      Ce rapport de recherche a été préparé par <strong>${esc(analyst)}</strong>, analyste financier agissant pour le compte de
+      <strong>${esc(d.firm)}</strong> (ci-après « la Société »). Il est fourni à titre d'information uniquement et ne constitue pas
+      une offre, une sollicitation ou un conseil en investissement personnalisé au sens de la Directive MIF II (2014/65/UE) et
+      du Règlement Délégué (UE) 2017/565.<br><br>
+      Les opinions, projections et prévisions figurant dans ce document reflètent le jugement de l'analyste à la date de publication
+      indiquée. Elles sont susceptibles d'être modifiées sans préavis en fonction de l'évolution des conditions de marché et des
+      données fondamentales de l'émetteur. ${esc(d.firm)} ne garantit pas l'exactitude, l'exhaustivité ou l'opportunité
+      des informations contenues dans ce rapport. Les performances passées ne préjugent pas des performances futures.<br><br>
+      Ce document ne prend pas en compte les objectifs d'investissement spécifiques, la situation financière personnelle ou les
+      besoins particuliers de chaque destinataire. Tout investissement comporte des risques, y compris le risque de perte totale
+      en capital. Les investisseurs sont invités à consulter leur conseiller financier indépendant avant toute décision
+      d'investissement basée sur ce rapport.<br><br>
+      Ce rapport est protégé par le droit d'auteur. Toute reproduction, distribution ou transmission, totale ou partielle,
+      à des tiers non autorisés est strictement interdite sans l'accord écrit préalable de ${esc(d.firm)}. Ce document
+      est soumis aux dispositions du Règlement (UE) n° 596/2014 sur les abus de marché (MAR) et aux règlements de
+      l'Autorité des Marchés Financiers (AMF).<br><br>
+      © ${yr} ${esc(d.firm)} — Tous droits réservés. ${esc(d.co)} est une marque déposée de ses propriétaires respectifs.
+    </div>
+
+  </div>
+  ${ftr(d,9,total)}
+</div>`;
+}
+
+/* ── CHART PAGES ─────────────────────────────────────────── */
+function pageChartsA(d, total){
+  return `<div class="rpage" id="rp-3">
+  ${hdr(d)}
+  <div class="r-content" style="padding-bottom:30px">
+    <div class="sec-title">2. Analyse boursière &amp; Structure du capital</div>
+    <div class="chart-row" style="margin-top:12px">
+      <div class="chart-box" style="flex:1.7">
+        <div class="chart-box-title">📈 Performance boursière — 12 mois vs indice de référence</div>
+        <canvas id="chart-perf" height="190"></canvas>
+        <div class="chart-interp" id="interp-perf"></div>
+      </div>
+      <div class="chart-box" style="flex:1">
+        <div class="chart-box-title">🏦 Structure du capital</div>
+        <canvas id="chart-cap" height="190"></canvas>
+        <div class="chart-interp" id="interp-cap"></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-box-title">📊 Ratios de valorisation — Société vs Moyenne sectorielle</div>
+      <canvas id="chart-val" height="165"></canvas>
+      <div class="chart-interp" id="interp-val"></div>
+    </div>
+  </div>
+  ${ftr(d,3,total)}
+</div>`;
+}
+
+function pageChartsB(d, total){
+  return `<div class="rpage" id="rp-4">
+  ${hdr(d)}
+  <div class="r-content" style="padding-bottom:30px">
+    <div class="sec-title">3. Croissance &amp; Rentabilité</div>
+    <div class="chart-box" style="margin-top:12px">
+      <div class="chart-box-title">📊 Évolution du CA, EBITDA et Résultat net — historique &amp; estimations (Md€)</div>
+      <canvas id="chart-fin" height="200"></canvas>
+      <div class="chart-interp" id="interp-fin"></div>
+    </div>
+    <div class="chart-row" style="margin-top:12px">
+      <div class="chart-box">
+        <div class="chart-box-title">📉 Conversion recettes → bénéfices — Marges EBITDA et nette (%)</div>
+        <canvas id="chart-margins" height="175"></canvas>
+        <div class="chart-interp" id="interp-margins"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">💰 Politique de dividendes — DPS (€/action) &amp; Rendement (%)</div>
+        <canvas id="chart-div" height="175"></canvas>
+        <div class="chart-interp" id="interp-div"></div>
+      </div>
+    </div>
+  </div>
+  ${ftr(d,4,total)}
+</div>`;
+}
+
+function pageChartsC(d, total){
+  return `<div class="rpage" id="rp-5">
+  ${hdr(d)}
+  <div class="r-content" style="padding-bottom:30px">
+    <div class="sec-title">3bis. Répartition des revenus &amp; Précision des estimations</div>
+    <div class="chart-row" style="margin-top:12px">
+      <div class="chart-box">
+        <div class="chart-box-title">🏭 Répartition par segment d'activité</div>
+        <canvas id="chart-seg" height="185"></canvas>
+        <div class="chart-interp" id="interp-seg"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">🌍 Répartition géographique des revenus</div>
+        <canvas id="chart-geo" height="185"></canvas>
+        <div class="chart-interp" id="interp-geo"></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-box-title">🎯 Précision des estimations analyste — BPA réel vs consensus (€/action)</div>
+      <canvas id="chart-est" height="165"></canvas>
+      <div class="chart-interp" id="interp-est"></div>
+    </div>
+  </div>
+  ${ftr(d,5,total)}
+</div>`;
+}
+
+/* ── RENDER CHARTS ───────────────────────────────────────── */
+window.CHART_DATA = {};
+window._charts   = {};
+
+function renderCharts(){
+  const cd = window.CHART_DATA;
+  if(!cd || !Object.keys(cd).length) return;
+
+  // Destroy stale instances
+  for(const c of Object.values(window._charts)){
+    try{ c.destroy(); }catch(_){}
+  }
+  window._charts = {};
+
+  const C = {
+    navy:'#1B2A4A', gold:'#C8922A', green:'#1E7E34',
+    blue:'#3B82F6', teal:'#0D9488', purple:'#7C3AED',
+    seg:['#1B2A4A','#C8922A','#3B82F6','#1E7E34','#7C3AED','#0D9488','#EF4444','#F59E0B'],
+  };
+
+  function mk(id, cfg){
+    const el = document.getElementById(id);
+    if(!el) return;
+    window._charts[id] = new Chart(el, cfg);
+  }
+
+  const legOpts = { position:'bottom', labels:{ font:{size:9}, boxWidth:13, padding:8 } };
+
+  // Helper: axis title config
+  function axTitle(txt){ return { display:true, text:txt, font:{size:8, weight:'600'}, color:'#666', padding:{top:2,bottom:0} }; }
+
+  // Helper: standard single-Y scale with label
+  function scalesY(yLabel, fmt){
+    return {
+      y:{ title: axTitle(yLabel), ticks:{ font:{size:8}, callback: fmt||null }, grid:{color:'#eef0f7'} },
+      x:{ ticks:{ font:{size:8} }, grid:{display:false} }
+    };
+  }
+
+  // 1. Performance — variation en %
+  if(cd.performance){
+    const p = cd.performance;
+    mk('chart-perf',{ type:'line', data:{
+      labels: p.months,
+      datasets:[
+        { label:'Action',  data:p.stock, borderColor:C.navy, backgroundColor:'rgba(27,42,74,.09)', fill:true,  tension:.35, borderWidth:2, pointRadius:3 },
+        { label:'Indice',  data:p.index, borderColor:C.gold, backgroundColor:'transparent',        fill:false, tension:.35, borderWidth:1.5, borderDash:[5,3], pointRadius:2 }
+      ]
+    }, options:{ responsive:true, plugins:{ legend:legOpts },
+      scales: scalesY('Variation (%)', v=>v+'%') } });
+  }
+
+  // 2. Capital structure donut — pourcentages affichés dans la légende
+  if(cd.capitalStructure){
+    const cs = cd.capitalStructure;
+    mk('chart-cap',{ type:'doughnut', data:{
+      labels:['Capitaux propres','Dette nette','Trésorerie'],
+      datasets:[{ data:[cs.equity,cs.debt,cs.cash], backgroundColor:[C.navy,C.gold,C.green], borderWidth:2, borderColor:'#fff' }]
+    }, options:{ responsive:true, cutout:'62%', plugins:{
+      legend:legOpts,
+      tooltip:{ callbacks:{ label: ctx => ` ${ctx.label} : ${ctx.raw}%` } }
+    } } });
+  }
+
+  // 3. Valuation ratios grouped bar — multiple (x)
+  if(cd.valuationRatios){
+    const vr = cd.valuationRatios;
+    mk('chart-val',{ type:'bar', data:{
+      labels: vr.labels,
+      datasets:[
+        { label:'Société',         data:vr.company, backgroundColor:C.navy },
+        { label:'Secteur (moy.)', data:vr.sector,  backgroundColor:C.gold }
+      ]
+    }, options:{ responsive:true, plugins:{ legend:legOpts },
+      scales: scalesY('Multiple (x)', v=>v+'x') } });
+  }
+
+  // 4. Financial history grouped bar — Md€
+  if(cd.financialHistory){
+    const fh = cd.financialHistory;
+    mk('chart-fin',{ type:'bar', data:{
+      labels: fh.years,
+      datasets:[
+        { label:'CA (Md€)',           data:fh.revenue,   backgroundColor:'rgba(27,42,74,.80)'   },
+        { label:'EBITDA (Md€)',       data:fh.ebitda,    backgroundColor:'rgba(200,146,42,.85)' },
+        { label:'Résultat net (Md€)', data:fh.netIncome, backgroundColor:'rgba(30,126,52,.85)'  }
+      ]
+    }, options:{ responsive:true, plugins:{ legend:legOpts },
+      scales: scalesY('Milliards €', v=>v+' Md€') } });
+  }
+
+  // 5. Margins line chart — %
+  if(cd.margins){
+    const mg = cd.margins;
+    mk('chart-margins',{ type:'line', data:{
+      labels: mg.years,
+      datasets:[
+        { label:'Marge EBITDA (%)', data:mg.ebitdaMargin, borderColor:C.navy, backgroundColor:'rgba(27,42,74,.08)',   fill:true,  tension:.35, borderWidth:2, pointRadius:4 },
+        { label:'Marge nette (%)',  data:mg.netMargin,    borderColor:C.gold, backgroundColor:'rgba(200,146,42,.08)', fill:true,  tension:.35, borderWidth:2, pointRadius:4, borderDash:[4,2] }
+      ]
+    }, options:{ responsive:true, plugins:{ legend:legOpts },
+      scales: scalesY('Marge (%)', v=>v+'%') } });
+  }
+
+  // 6. Revenue by segment donut — % avec tooltip
+  if(cd.revenueBySegment){
+    const rs = cd.revenueBySegment;
+    mk('chart-seg',{ type:'doughnut', data:{
+      labels: rs.labels,
+      datasets:[{ data:rs.values, backgroundColor:C.seg.slice(0,rs.labels.length), borderWidth:2, borderColor:'#fff' }]
+    }, options:{ responsive:true, cutout:'55%', plugins:{
+      legend:legOpts,
+      tooltip:{ callbacks:{ label: ctx => ` ${ctx.label} : ${ctx.raw}%` } }
+    } } });
+  }
+
+  // 7. Revenue by geography donut — % avec tooltip
+  if(cd.revenueByGeo){
+    const rg = cd.revenueByGeo;
+    mk('chart-geo',{ type:'doughnut', data:{
+      labels: rg.labels,
+      datasets:[{ data:rg.values, backgroundColor:C.seg.slice(0,rg.labels.length), borderWidth:2, borderColor:'#fff' }]
+    }, options:{ responsive:true, cutout:'55%', plugins:{
+      legend:legOpts,
+      tooltip:{ callbacks:{ label: ctx => ` ${ctx.label} : ${ctx.raw}%` } }
+    } } });
+  }
+
+  // 8. Estimates accuracy grouped bar — €/action
+  if(cd.estimatesAccuracy){
+    const ea = cd.estimatesAccuracy;
+    mk('chart-est',{ type:'bar', data:{
+      labels: ea.years,
+      datasets:[
+        { label:'BPA réel (€)',    data:ea.epsActual,   backgroundColor:C.navy },
+        { label:'BPA estimé (€)', data:ea.epsEstimate, backgroundColor:'rgba(27,42,74,.30)' }
+      ]
+    }, options:{ responsive:true, plugins:{ legend:legOpts },
+      scales: scalesY('BPA (€/action)', v=>v+'€') } });
+  }
+
+  // 9. Dividends — combo bar DPS + line yield — double axe
+  if(cd.dividends){
+    const dv = cd.dividends;
+    mk('chart-div',{ type:'bar', data:{
+      labels: dv.years,
+      datasets:[
+        { type:'bar',  label:'DPS (€/action)',  data:dv.dps,   backgroundColor:C.navy, yAxisID:'y'  },
+        { type:'line', label:'Rendement (%)',   data:dv.yield, borderColor:C.gold, backgroundColor:'transparent',
+          borderWidth:2, pointRadius:4, tension:.3, yAxisID:'y2' }
+      ]
+    }, options:{
+      responsive:true,
+      plugins:{ legend:legOpts },
+      scales:{
+        y:{  position:'left',  title:axTitle('DPS (€)'),       ticks:{ font:{size:8}, callback:v=>v+'€' }, grid:{color:'#eef0f7'} },
+        y2:{ position:'right', title:axTitle('Rendement (%)'), ticks:{ font:{size:8}, callback:v=>v+'%' }, grid:{display:false} },
+        x:{  ticks:{ font:{size:8} }, grid:{display:false} }
+      }
+    }});
+  }
+
+  // Fill interpretations
+  if(cd.interpretations){
+    const map = {
+      'interp-perf':    'performance',
+      'interp-cap':     'capitalStructure',
+      'interp-val':     'valuationRatios',
+      'interp-fin':     'financialHistory',
+      'interp-margins': 'margins',
+      'interp-div':     'dividends',
+      'interp-seg':     'revenueBySegment',
+      'interp-geo':     'revenueByGeo',
+      'interp-est':     'estimatesAccuracy',
+    };
+    for(const [id, key] of Object.entries(map)){
+      const el = document.getElementById(id);
+      if(el && cd.interpretations[key]) el.textContent = '▸ ' + cd.interpretations[key];
+    }
+  }
+}
+
+/* ── GENERATE PREVIEW ────────────────────────────────────── */
+function generateReport(){
+  const d = getData();
+  const total = 9;
+  const html = [
+    pageCover(d, total),
+    pageTwo(d, total),
+    pageChartsA(d, total),
+    pageChartsB(d, total),
+    pageChartsC(d, total),
+    pageThree(d, total),
+    pageFour(d, total),
+    pageFive(d, total),
+    pageSix(d, total),
+  ].join('\n');
+  document.getElementById('preview').innerHTML = html;
+  renderCharts();
+}
+
+/* ── GENERATE PDF ────────────────────────────────────────── */
+async function generatePDF(){
+  // Make sure report is up-to-date
+  generateReport();
+
+  const overlay = document.getElementById('overlay');
+  overlay.classList.add('on');
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+    const A4W = 210;   // mm
+    const A4H = 297;   // mm
+    // Wait for charts to render
+    await new Promise(r => setTimeout(r, 600));
+    const pageIds = ['rp-1','rp-2','rp-3','rp-4','rp-5','rp-6','rp-7','rp-8','rp-9'];
+    let firstPage = true;
+
+    for(const id of pageIds){
+      const el = document.getElementById(id);
+      if(!el) continue;
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      // pixels per mm at A4 width
+      const pxPerMM = canvas.width / A4W;
+      const pdfPageHeightPx = A4H * pxPerMM;
+
+      let srcY = 0;
+      let remaining = canvas.height;
+
+      while(remaining > 0){
+        if(!firstPage) pdf.addPage();
+        firstPage = false;
+
+        const sliceH = Math.min(pdfPageHeightPx, remaining);
+        const sliceHmm = sliceH / pxPerMM;
+
+        // Create a slice canvas
+        const slice = document.createElement('canvas');
+        slice.width  = canvas.width;
+        slice.height = sliceH;
+        const ctx = slice.getContext('2d');
+        ctx.drawImage(canvas, 0, srcY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+        const img = slice.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(img, 'JPEG', 0, 0, A4W, sliceHmm);
+
+        srcY      += sliceH;
+        remaining -= sliceH;
+      }
+    }
+
+    const d = getData();
+    const safeName = d.co.replace(/\s+/g,'_').replace(/[^\w-]/g,'');
+    const safeDate = d.date.replace(/\s+/g,'_');
+    pdf.save(`${safeName}_Recherche_Action_${safeDate}.pdf`);
+
+  } catch(err){
+    alert('Erreur lors de la génération du PDF :\n' + err.message);
+    console.error(err);
+  } finally {
+    overlay.classList.remove('on');
+  }
+}
+
+/* ── STOCKS DATABASE ─────────────────────────────────────── */
+// [name, ticker, isin, exchange, sector GICS, region, flag]
+const STOCKS = [
+  // ── FRANCE ──────────────────────────────────────────────
+  ['Air Liquide','AI','FR0000120073','PAR','Materials','Europe / France','🇫🇷'],
+  ['Airbus','AIR','NL0000235190','PAR','Industrials','Europe / Pays-Bas','🇳🇱'],
+  ['Alstom','ALO','FR0010220475','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Amundi','AMUN','FR0004125920','PAR','Financials','Europe / France','🇫🇷'],
+  ['ArcelorMittal','MT','LU1598757687','PAR','Materials','Europe / Luxembourg','🇱🇺'],
+  ['AXA','CS','FR0000120628','PAR','Financials','Europe / France','🇫🇷'],
+  ['BioMérieux','BIM','FR0013280286','PAR','Health Care','Europe / France','🇫🇷'],
+  ['BNP Paribas','BNP','FR0000131104','PAR','Financials','Europe / France','🇫🇷'],
+  ['Bouygues','EN','FR0000120503','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Bureau Veritas','BVI','FR0006174348','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Capgemini','CAP','FR0000125338','PAR','Information Technology','Europe / France','🇫🇷'],
+  ['Carrefour','CA','FR0000120172','PAR','Consumer Staples','Europe / France','🇫🇷'],
+  ['Compagnie de Saint-Gobain','SGO','FR0000125007','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Crédit Agricole','ACA','FR0000045072','PAR','Financials','Europe / France','🇫🇷'],
+  ['Danone','BN','FR0000120644','PAR','Consumer Staples','Europe / France','🇫🇷'],
+  ['Dassault Aviation','AM','FR0014004L86','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Dassault Systèmes','DSY','FR0000130650','PAR','Information Technology','Europe / France','🇫🇷'],
+  ['Edenred','EDEN','FR0010908533','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Eiffage','FGR','FR0000130452','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Engie','ENGI','FR0010208488','PAR','Utilities','Europe / France','🇫🇷'],
+  ['EssilorLuxottica','EL','FR0000121667','PAR','Health Care','Europe / France','🇫🇷'],
+  ['Eurofins Scientific','ERF','LU1674917428','PAR','Health Care','Europe / Luxembourg','🇱🇺'],
+  ['Eurazeo','RF','FR0000121121','PAR','Financials','Europe / France','🇫🇷'],
+  ['Hermès International','RMS','FR0000052292','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ['Imerys','NK','FR0000120859','PAR','Materials','Europe / France','🇫🇷'],
+  ['Ipsen','IPN','FR0010259150','PAR','Health Care','Europe / France','🇫🇷'],
+  ['Kering','KER','FR0000121485','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ["L'Oréal",'OR','FR0000120321','PAR','Consumer Staples','Europe / France','🇫🇷'],
+  ['Legrand','LR','FR0010307819','PAR','Industrials','Europe / France','🇫🇷'],
+  ['LVMH','MC','FR0000121014','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ['Michelin','ML','FR0000131906','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ['Nexans','NEX','FR0000044448','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Orange','ORA','FR0000133308','PAR','Communication Services','Europe / France','🇫🇷'],
+  ['Pernod Ricard','RI','FR0000120693','PAR','Consumer Staples','Europe / France','🇫🇷'],
+  ['Plastic Omnium','POM','FR0000124570','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ['Publicis Groupe','PUB','FR0000130577','PAR','Communication Services','Europe / France','🇫🇷'],
+  ['Rémy Cointreau','RCO','FR0000130395','PAR','Consumer Staples','Europe / France','🇫🇷'],
+  ['Renault','RNO','FR0000131963','PAR','Consumer Discretionary','Europe / France','🇫🇷'],
+  ['Rubis','RUI','FR0013317802','PAR','Energy','Europe / France','🇫🇷'],
+  ['Safran','SAF','FR0000073272','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Sanofi','SAN','FR0000120578','PAR','Health Care','Europe / France','🇫🇷'],
+  ['Sartorius Stedim Biotech','DIM','FR0013154002','PAR','Health Care','Europe / France','🇫🇷'],
+  ['Schneider Electric','SU','FR0000121972','PAR','Industrials','Europe / France','🇫🇷'],
+  ['SCOR','SCR','FR0010411983','PAR','Financials','Europe / France','🇫🇷'],
+  ['Société Générale','GLE','FR0000130809','PAR','Financials','Europe / France','🇫🇷'],
+  ['Soitec','SOI','FR0013227113','PAR','Information Technology','Europe / France','🇫🇷'],
+  ['Sopra Steria','SOP','FR0000050809','PAR','Information Technology','Europe / France','🇫🇷'],
+  ['STMicroelectronics','STM','NL0000226223','PAR','Information Technology','Europe / Pays-Bas','🇳🇱'],
+  ['Technip Energies','TE','FR0013227093','PAR','Energy','Europe / France','🇫🇷'],
+  ['Teleperformance','TEP','FR0000051807','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Thales','HO','FR0000121329','PAR','Industrials','Europe / France','🇫🇷'],
+  ['TotalEnergies','TTE','FR0014000MR3','PAR','Energy','Europe / France','🇫🇷'],
+  ['Unibail-Rodamco-Westfield','URW','FR0013326246','PAR','Real Estate','Europe / France','🇫🇷'],
+  ['Vallourec','VK','FR0013506730','PAR','Materials','Europe / France','🇫🇷'],
+  ['Veolia Environnement','VIE','FR0000124141','PAR','Utilities','Europe / France','🇫🇷'],
+  ['Vinci','DG','FR0000125486','PAR','Industrials','Europe / France','🇫🇷'],
+  ['Vivendi','VIV','FR0000127771','PAR','Communication Services','Europe / France','🇫🇷'],
+  ['Wendel','MF','FR0000121204','PAR','Financials','Europe / France','🇫🇷'],
+  ['Worldline','WLN','FR0011981968','PAR','Information Technology','Europe / France','🇫🇷'],
+  // ── ALLEMAGNE ───────────────────────────────────────────
+  ['Adidas','ADS','DE000A1EWWW0','FRA','Consumer Discretionary','Europe / Allemagne','🇩🇪'],
+  ['Allianz','ALV','DE0008404005','FRA','Financials','Europe / Allemagne','🇩🇪'],
+  ['BASF','BAS','DE000BASF111','FRA','Materials','Europe / Allemagne','🇩🇪'],
+  ['Bayer','BAYN','DE000BAY0017','FRA','Health Care','Europe / Allemagne','🇩🇪'],
+  ['BMW','BMW','DE0005190003','FRA','Consumer Discretionary','Europe / Allemagne','🇩🇪'],
+  ['Continental','CON','DE0005439004','FRA','Consumer Discretionary','Europe / Allemagne','🇩🇪'],
+  ['Deutsche Bank','DBK','DE0005140008','FRA','Financials','Europe / Allemagne','🇩🇪'],
+  ['Deutsche Post (DHL)','DHL','DE0005552004','FRA','Industrials','Europe / Allemagne','🇩🇪'],
+  ['Deutsche Telekom','DTE','DE0005557508','FRA','Communication Services','Europe / Allemagne','🇩🇪'],
+  ['Fresenius','FRE','DE0005785604','FRA','Health Care','Europe / Allemagne','🇩🇪'],
+  ['Heidelberg Materials','HEIG','DE0006047004','FRA','Materials','Europe / Allemagne','🇩🇪'],
+  ['Infineon Technologies','IFX','DE0006231004','FRA','Information Technology','Europe / Allemagne','🇩🇪'],
+  ['Mercedes-Benz','MBG','DE0007100000','FRA','Consumer Discretionary','Europe / Allemagne','🇩🇪'],
+  ['Merck KGaA','MRK','DE0006599905','FRA','Health Care','Europe / Allemagne','🇩🇪'],
+  ['Munich Re','MUV2','DE0008430026','FRA','Financials','Europe / Allemagne','🇩🇪'],
+  ['RWE','RWE','DE0007037129','FRA','Utilities','Europe / Allemagne','🇩🇪'],
+  ['SAP','SAP','DE0007164600','FRA','Information Technology','Europe / Allemagne','🇩🇪'],
+  ['Siemens','SIE','DE0007236101','FRA','Industrials','Europe / Allemagne','🇩🇪'],
+  ['Volkswagen (pref.)','VOW3','DE0007664039','FRA','Consumer Discretionary','Europe / Allemagne','🇩🇪'],
+  // ── PAYS-BAS ────────────────────────────────────────────
+  ['ASML Holding','ASML','NL0010273215','AMS','Information Technology','Europe / Pays-Bas','🇳🇱'],
+  ['ING Groep','INGA','NL0011821202','AMS','Financials','Europe / Pays-Bas','🇳🇱'],
+  ['Wolters Kluwer','WKL','NL0000395903','AMS','Industrials','Europe / Pays-Bas','🇳🇱'],
+  // ── ITALIE ──────────────────────────────────────────────
+  ['Enel','ENEL','IT0003128367','MIL','Utilities','Europe / Italie','🇮🇹'],
+  ['ENI','ENI','IT0003132476','MIL','Energy','Europe / Italie','🇮🇹'],
+  ['Ferrari','RACE','NL0011585146','MIL','Consumer Discretionary','Europe / Pays-Bas','🇳🇱'],
+  ['Intesa Sanpaolo','ISP','IT0000072618','MIL','Financials','Europe / Italie','🇮🇹'],
+  ['UniCredit','UCG','IT0005239360','MIL','Financials','Europe / Italie','🇮🇹'],
+  // ── ESPAGNE ─────────────────────────────────────────────
+  ['Amadeus IT','AMS','ES0109067019','MAD','Information Technology','Europe / Espagne','🇪🇸'],
+  ['Banco Santander','SAN','ES0113900J37','MAD','Financials','Europe / Espagne','🇪🇸'],
+  ['BBVA','BBVA','ES0113211835','MAD','Financials','Europe / Espagne','🇪🇸'],
+  ['CaixaBank','CABK','ES0140609019','MAD','Financials','Europe / Espagne','🇪🇸'],
+  ['Iberdrola','IBE','ES0144580Y14','MAD','Utilities','Europe / Espagne','🇪🇸'],
+  ['Inditex','ITX','ES0148396007','MAD','Consumer Discretionary','Europe / Espagne','🇪🇸'],
+  // ── BELGIQUE ────────────────────────────────────────────
+  ['AB InBev','ABI','BE0974293251','BRU','Consumer Staples','Europe / Belgique','🇧🇪'],
+  ['UCB','UCB','BE0003739530','BRU','Health Care','Europe / Belgique','🇧🇪'],
+  ['Sofina','SOF','BE0003717312','BRU','Financials','Europe / Belgique','🇧🇪'],
+  // ── DANEMARK ────────────────────────────────────────────
+  ['DSV','DSV','DK0060079531','CPH','Industrials','Europe / Danemark','🇩🇰'],
+  ['Novo Nordisk','NOVO B','DK0060534915','CPH','Health Care','Europe / Danemark','🇩🇰'],
+  ['Vestas Wind Systems','VWS','DK0061539921','CPH','Utilities','Europe / Danemark','🇩🇰'],
+  // ── FINLANDE ────────────────────────────────────────────
+  ['KONE','KNEBV','FI0009013403','HEL','Industrials','Europe / Finlande','🇫🇮'],
+  ['Neste','NESTE','FI0009013296','HEL','Energy','Europe / Finlande','🇫🇮'],
+  ['Nokia','NOKIA','FI0009000681','HEL','Communication Services','Europe / Finlande','🇫🇮'],
+  // ── SUÈDE ───────────────────────────────────────────────
+  ['Atlas Copco A','ATCO A','SE0011166610','STO','Industrials','Europe / Suède','🇸🇪'],
+  ['Ericsson B','ERIC B','SE0000108656','STO','Communication Services','Europe / Suède','🇸🇪'],
+  ['H&M B','HMB','SE0000106270','STO','Consumer Discretionary','Europe / Suède','🇸🇪'],
+  ['Volvo B','VOLV B','SE0000115446','STO','Industrials','Europe / Suède','🇸🇪'],
+  // ── IRLANDE ─────────────────────────────────────────────
+  ['CRH','CRH','IE0001827041','DUB','Materials','Europe / Irlande','🇮🇪'],
+  ['Kerry Group','KYG','IE0004906560','DUB','Consumer Staples','Europe / Irlande','🇮🇪'],
+  ['Ryanair','RYA','IE00BYTBXV33','DUB','Industrials','Europe / Irlande','🇮🇪'],
+];
+
+/* ── STOCK SEARCH LOGIC ──────────────────────────────────── */
+let _ddIdx = -1;
+let _ddFiltered = [];
+
+function filterStocks(){
+  const q   = document.getElementById('stock-q').value.toLowerCase().trim();
+  const dd  = document.getElementById('stock-dd');
+  const clr = document.getElementById('stock-clr');
+  clr.className = q ? 'stock-clear vis' : 'stock-clear';
+
+  if(!q){ dd.classList.remove('open'); _ddFiltered=[]; return; }
+
+  _ddFiltered = STOCKS.filter(s =>
+    s[0].toLowerCase().includes(q) || s[1].toLowerCase().includes(q)
+  ).slice(0, 25);
+
+  if(!_ddFiltered.length){ dd.classList.remove('open'); return; }
+
+  dd.innerHTML = _ddFiltered.map((s, i) => `
+    <div class="stock-row" data-i="${i}" onclick="selectStock(${i})" onmouseenter="hiRow(${i})">
+      <div>
+        <div class="stock-rname"><span class="stock-flag">${s[6]}</span>${s[0]}</div>
+        <div class="stock-rmeta">${s[3]} · ${s[4]}</div>
+      </div>
+      <span class="stock-rticker">${s[1]}</span>
+    </div>
+  `).join('');
+  dd.classList.add('open');
+  _ddIdx = -1;
+}
+
+function hiRow(i){
+  _ddIdx = i;
+  document.querySelectorAll('#stock-dd .stock-row').forEach((el,j)=>el.classList.toggle('hi',j===i));
+}
+
+function navStock(e){
+  const dd = document.getElementById('stock-dd');
+  if(!dd.classList.contains('open')) return;
+  const rows = dd.querySelectorAll('.stock-row');
+  if(e.key==='ArrowDown'){ e.preventDefault(); _ddIdx=Math.min(_ddIdx+1,rows.length-1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); _ddIdx=Math.max(_ddIdx-1,0); }
+  else if(e.key==='Enter'&&_ddIdx>=0){ e.preventDefault(); selectStock(_ddIdx); return; }
+  else if(e.key==='Escape'){ dd.classList.remove('open'); return; }
+  rows.forEach((el,i)=>el.classList.toggle('hi',i===_ddIdx));
+  if(_ddIdx>=0) rows[_ddIdx].scrollIntoView({block:'nearest'});
+}
+
+function selectStock(i){
+  const s = _ddFiltered[i];
+  if(!s) return;
+  document.getElementById('f-co').value     = s[0];
+  document.getElementById('f-ticker').value = s[1];
+  document.getElementById('f-isin').value   = s[2];
+  document.getElementById('f-exch').value   = s[3];
+  document.getElementById('f-sector').value = s[4];
+  document.getElementById('f-region').value = s[5];
+  document.getElementById('stock-q').value  = s[0];
+  document.getElementById('stock-dd').classList.remove('open');
+  document.getElementById('stock-clr').className = 'stock-clear vis';
+  generateReport();
+}
+
+function clearStock(){
+  document.getElementById('stock-q').value = '';
+  document.getElementById('stock-dd').classList.remove('open');
+  document.getElementById('stock-clr').className = 'stock-clear';
+  _ddFiltered = [];
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.stock-wrap'))
+    document.getElementById('stock-dd').classList.remove('open');
+});
+
+/* ── API KEY HELPERS ─────────────────────────────────────── */
+function toggleApiKeyVis(){
+  const el = document.getElementById('api-key');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function loadApiKey(){
+  const k = localStorage.getItem('anthropic_api_key');
+  if(k) document.getElementById('api-key').value = k;
+}
+
+function saveApiKey(){
+  const k = document.getElementById('api-key').value.trim();
+  if(k) localStorage.setItem('anthropic_api_key', k);
+}
+
+/* ── AI GENERATION ───────────────────────────────────────── */
+function setAIProgress(pct, msg){
+  const bar  = document.getElementById('ai-bar');
+  const stat = document.getElementById('ai-status');
+  const prog = document.getElementById('ai-progress');
+  bar.style.width = pct + '%';
+  stat.textContent = msg;
+  stat.className   = 'ai-status' + (msg ? ' on' : '');
+  prog.className   = 'ai-progress' + (pct > 0 ? ' on' : '');
+}
+
+function extractJSON(text){
+  // Try direct parse first
+  try { return JSON.parse(text); } catch(_){}
+  // Try to extract JSON block from markdown/text
+  const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if(m) try { return JSON.parse(m[1]); } catch(_){}
+  // Try to find { ... } block
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if(start !== -1 && end !== -1) try { return JSON.parse(text.slice(start, end+1)); } catch(_){}
+  throw new Error('Impossible d\'extraire le JSON de la réponse de Claude.');
+}
+
+async function generateWithAI(){
+  const apiKey = document.getElementById('api-key').value.trim();
+  if(!apiKey){
+    alert('Veuillez entrer votre clé API Anthropic (sk-ant-…) dans le champ violet en haut du formulaire.');
+    document.getElementById('api-key').focus();
+    return;
+  }
+  saveApiKey();
+
+  const co     = document.getElementById('f-co').value.trim()     || '?';
+  const ticker = document.getElementById('f-ticker').value.trim() || '?';
+  const exch   = document.getElementById('f-exch').value.trim()   || '?';
+  const isin   = document.getElementById('f-isin').value.trim()   || '?';
+  const sector = document.getElementById('f-sector').value.trim() || '?';
+  const region = document.getElementById('f-region').value.trim() || '?';
+  const firm   = document.getElementById('f-firm').value.trim()   || 'la société d\'analyse';
+
+  if(co === '?' || ticker === '?'){
+    alert('Veuillez d\'abord sélectionner une action dans la liste de recherche.');
+    document.getElementById('stock-input').focus();
+    return;
+  }
+
+  const btn = document.getElementById('btn-ai');
+  btn.disabled = true;
+  setAIProgress(15, '⏳ Connexion à Claude…');
+
+  const systemPrompt = `Tu es un analyste financier sell-side senior, expert en rédaction de rapports de recherche action institutionnels au format broker. Tu rédiges en français, avec un style professionnel, factuel et précis. Tu utilises tes connaissances sur les sociétés réelles pour fournir des données financières réalistes et cohérentes. Tu respectes scrupuleusement les consignes de format JSON demandées, en particulier les types de données (nombres sans guillemets, tableaux, objets).`;
+
+  const userPrompt = `Génère un rapport de recherche action complet et entièrement autonome pour la société suivante. Tu dois TOUT générer toi-même — l'utilisateur ne fournit aucune donnée.
+
+Société :
+- Nom : ${co}
+- Ticker : ${ticker}
+- ISIN : ${isin}
+- Place de cotation : ${exch}
+- Secteur GICS : ${sector}
+- Région : ${region}
+- Société d'analyse : ${firm}
+
+Instructions :
+1. Utilise tes connaissances sur cette société réelle pour toutes les données (cours, volumes, résultats historiques, ratios sectoriels, segmentation des revenus, géographie).
+2. Formule ta propre recommandation et prix cible basés sur une analyse fondamentale rigoureuse.
+3. Pour les graphiques, génère des données numériques cohérentes et réalistes (séries historiques 5 ans + estimations 2 ans).
+4. IMPORTANT : les valeurs numériques dans les tableaux/séries doivent être des NOMBRES (pas des strings) pour être correctement tracés.
+
+Retourne UNIQUEMENT un objet JSON valide (sans markdown, sans texte avant/après), avec exactement ces clés :
+
+{
+  "recommendation": "Acheter",
+  "currentPrice": "185,40 €",
+  "targetPrice": "220,00 €",
+  "weekRange": "148,50 € – 203,80 €",
+  "avgVolume": "1,4M actions / jour",
+  "capitalStructure": { "equity": 58, "debt": 32, "cash": 10 },
+  "valuationRatios": {
+    "labels": ["PER", "EV/EBITDA", "P/B", "P/FCF"],
+    "company": [22.5, 14.3, 3.2, 18.9],
+    "sector":  [18.2, 12.1, 2.8, 16.4]
+  },
+  "financialHistory": {
+    "years":     ["2021", "2022", "2023", "2024E", "2025E"],
+    "revenue":   [28.9, 31.2, 34.5, 37.2, 40.1],
+    "ebitda":    [5.2, 5.8, 6.9, 7.8, 8.9],
+    "netIncome": [2.1, 2.4, 3.1, 3.6, 4.2]
+  },
+  "margins": {
+    "years":        ["2021", "2022", "2023", "2024E", "2025E"],
+    "ebitdaMargin": [18.0, 18.6, 20.0, 21.0, 22.2],
+    "netMargin":    [7.3, 7.7, 9.0, 9.7, 10.5]
+  },
+  "revenueBySegment": {
+    "labels": ["Segment A", "Segment B"],
+    "values": [65, 35]
+  },
+  "revenueByGeo": {
+    "labels": ["Europe", "Amérique du Nord", "Asie-Pacifique", "Reste du monde"],
+    "values": [30, 30, 28, 12]
+  },
+  "estimatesAccuracy": {
+    "years":       ["2022", "2023", "2024"],
+    "epsActual":   [3.8, 4.5, 5.2],
+    "epsEstimate": [4.1, 4.3, 5.0]
+  },
+  "dividends": {
+    "years": ["2021", "2022", "2023", "2024E", "2025E"],
+    "dps":   [3.20, 3.50, 3.90, 4.30, 4.70],
+    "yield": [1.8, 1.9, 2.1, 2.3, 2.5]
+  },
+  "performance": {
+    "months": ["Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc", "Jan", "Fév", "Mar"],
+    "stock":  [0, 5, 3, 8, 12, 9, 15, 18, 14, 20, 22, 18],
+    "index":  [0, 2, 1, 4, 6, 5, 8, 10, 7, 11, 13, 10]
+  },
+  "interpretations": {
+    "performance":      "1-2 phrases analyste commentant la surperf/sous-perf vs indice, les catalyseurs, et la tendance récente.",
+    "capitalStructure": "1-2 phrases sur la solidité du bilan, le ratio dette/fonds propres, et la capacité d'endettement résiduelle.",
+    "valuationRatios":  "1-2 phrases sur la prime/décote vs secteur, si elle est justifiée et pourquoi.",
+    "financialHistory": "1-2 phrases sur la trajectoire de croissance, le TCAM et les perspectives.",
+    "margins":          "1-2 phrases sur l'évolution des marges et les moteurs d'expansion ou de compression.",
+    "dividends":        "1-2 phrases sur la politique de distribution, la croissance du DPS et la soutenabilité du rendement.",
+    "revenueBySegment": "1-2 phrases sur la diversification par métier et les segments les plus porteurs.",
+    "revenueByGeo":     "1-2 phrases sur l'exposition géographique, les zones de croissance et les risques de concentration.",
+    "estimatesAccuracy": "1-2 phrases sur la qualité d'exécution vs consensus, les surprises régulières et la crédibilité du management."
+  },
+  "fact1": "…",
+  "fact2": "…",
+  "companyPresentation": "…",
+  "industryPresentation": "…",
+  "investmentCase": "…",
+  "financialAnalysis": "…",
+  "valuation": "…",
+  "riskAnalysis": "…",
+  "finalRecommendation": "…"
+}
+
+Remplace les "…" par le contenu réel. Adapte toutes les valeurs numériques et textuelles à la société ${co} (${ticker}).`;
+
+  try {
+    setAIProgress(30, '⏳ Claude analyse la société…');
+
+    // Retry loop — jusqu'à 3 tentatives pour les erreurs 529 / overloaded
+    let response, attempt = 0;
+    const maxAttempts = 3;
+    while(true){
+      attempt++;
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 9000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
+      });
+
+      if(response.status === 529 || response.status === 503){
+        if(attempt >= maxAttempts) break;
+        const wait = attempt * 8; // 8s, 16s
+        setAIProgress(30, `⏳ Serveurs surchargés — nouvel essai dans ${wait}s… (${attempt}/${maxAttempts})`);
+        await new Promise(r => setTimeout(r, wait * 1000));
+        setAIProgress(30, `⏳ Tentative ${attempt + 1}/${maxAttempts}…`);
+        continue;
+      }
+      break; // succès ou autre erreur
+    }
+
+    setAIProgress(70, '⏳ Réception de l\'analyse…');
+
+    if(!response.ok){
+      let errMsg = `Erreur HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errMsg = errData.error?.message || errMsg;
+      } catch(_){}
+      if(response.status === 529 || response.status === 503)
+        errMsg = 'Les serveurs Anthropic sont surchargés. Réessayez dans 1-2 minutes.';
+      throw new Error(errMsg);
+    }
+
+    const data = await response.json();
+    const rawText = data.content?.[0]?.text || '';
+
+    setAIProgress(85, '⏳ Remplissage de tous les champs…');
+
+    const json = extractJSON(rawText);
+
+    // Fill market data fields
+    if(json.recommendation){
+      const sel = document.getElementById('f-reco');
+      const val = json.recommendation.trim();
+      const opts = Array.from(sel.options).map(o => o.value);
+      const match = opts.find(o => o.toLowerCase() === val.toLowerCase()) || opts[0];
+      sel.value = match;
+    }
+    if(json.currentPrice) document.getElementById('f-price').value  = json.currentPrice;
+    if(json.targetPrice)  document.getElementById('f-target').value = json.targetPrice;
+    if(json.weekRange)    document.getElementById('f-range').value  = json.weekRange;
+    if(json.avgVolume)    document.getElementById('f-vol').value    = json.avgVolume;
+
+    // Store chart data globally
+    window.CHART_DATA = {};
+    const chartKeys = ['capitalStructure','valuationRatios','financialHistory','margins',
+                       'revenueBySegment','revenueByGeo','estimatesAccuracy','dividends','performance','interpretations'];
+    for(const k of chartKeys){
+      if(json[k]) window.CHART_DATA[k] = json[k];
+    }
+
+    // Fill all narrative fields
+    const mapping = {
+      'fact1':               'f-fact1',
+      'fact2':               'f-fact2',
+      'companyPresentation': 'f-copres',
+      'industryPresentation':'f-indpres',
+      'investmentCase':      'f-case',
+      'financialAnalysis':   'f-fin',
+      'valuation':           'f-val',
+      'riskAnalysis':        'f-risk',
+      'finalRecommendation': 'f-rec',
+    };
+    for(const [key, id] of Object.entries(mapping)){
+      if(json[key]) document.getElementById(id).value = json[key];
+    }
+
+    setAIProgress(100, '✅ Rapport complet avec graphiques généré !');
+    generateReport();
+
+    // Clear status after 5s
+    setTimeout(() => setAIProgress(0, ''), 5000);
+
+  } catch(err){
+    setAIProgress(0, '');
+    console.error(err);
+    if(err.message.includes('401') || err.message.toLowerCase().includes('auth')){
+      alert('Clé API invalide ou expirée. Vérifiez votre clé Anthropic sur console.anthropic.com');
+    } else if(err.message.includes('429')){
+      alert('Limite de requêtes atteinte. Attendez 30 secondes et réessayez.');
+    } else if(err.message.includes('529') || err.message.toLowerCase().includes('overload') || err.message.toLowerCase().includes('surcharg')){
+      alert('Les serveurs Anthropic sont temporairement surchargés.\n\nRéessayez dans 1 à 2 minutes.');
+    } else if(err.message.includes('Failed to fetch') || err.message.includes('NetworkError')){
+      alert('Erreur réseau. Vérifiez votre connexion internet.\n\nSi vous voyez une erreur CORS, ouvrez le fichier via un serveur local (ex: npx serve .) plutôt qu\'en file://');
+    } else {
+      alert('Erreur : ' + err.message);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── INIT ────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  loadApiKey();
+  generateReport();
+});
+</script>
+</body>
+</html>
