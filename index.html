@@ -186,14 +186,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#e8eaf0;color:#222;overf
       <p>Remplissez les infos de base, Claude rédige l'analyse</p>
     </div>
 
-    <!-- API KEY -->
+    <!-- AI STATUS -->
     <div class="api-section">
-      <h3>Clé API Anthropic</h3>
-      <div class="api-key-wrap">
-        <input type="password" id="api-key" placeholder="sk-ant-api03-..." autocomplete="off">
-        <button class="api-key-toggle" onclick="toggleApiKeyVis()" title="Afficher/masquer">👁</button>
-      </div>
-      <div class="api-hint">Votre clé reste locale (jamais envoyée ailleurs qu'à Anthropic)</div>
+      <div class="api-hint">Analyse rédigée par Claude (Anthropic) — limite : 10 rapports par heure</div>
       <div class="ai-status" id="ai-status">⏳ Génération en cours…</div>
       <div class="ai-progress" id="ai-progress"><div class="ai-progress-bar" id="ai-bar"></div></div>
     </div>
@@ -1181,22 +1176,6 @@ document.addEventListener('click', e=>{
     document.getElementById('stock-dd').classList.remove('open');
 });
 
-/* ── API KEY HELPERS ─────────────────────────────────────── */
-function toggleApiKeyVis(){
-  const el = document.getElementById('api-key');
-  el.type = el.type === 'password' ? 'text' : 'password';
-}
-
-function loadApiKey(){
-  const k = localStorage.getItem('anthropic_api_key');
-  if(k) document.getElementById('api-key').value = k;
-}
-
-function saveApiKey(){
-  const k = document.getElementById('api-key').value.trim();
-  if(k) localStorage.setItem('anthropic_api_key', k);
-}
-
 /* ── AI GENERATION ───────────────────────────────────────── */
 function setAIProgress(pct, msg){
   const bar  = document.getElementById('ai-bar');
@@ -1222,14 +1201,6 @@ function extractJSON(text){
 }
 
 async function generateWithAI(){
-  const apiKey = document.getElementById('api-key').value.trim();
-  if(!apiKey){
-    alert('Veuillez entrer votre clé API Anthropic (sk-ant-…) dans le champ violet en haut du formulaire.');
-    document.getElementById('api-key').focus();
-    return;
-  }
-  saveApiKey();
-
   const co     = document.getElementById('f-co').value.trim()     || '?';
   const ticker = document.getElementById('f-ticker').value.trim() || '?';
   const exch   = document.getElementById('f-exch').value.trim()   || '?';
@@ -1347,19 +1318,12 @@ Remplace les "…" par le contenu réel. Adapte toutes les valeurs numériques e
     const maxAttempts = 3;
     while(true){
       attempt++;
-      response = await fetch('https://api.anthropic.com/v1/messages', {
+      response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 9000,
           system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
+          user: userPrompt
         })
       });
 
@@ -1387,8 +1351,7 @@ Remplace les "…" par le contenu réel. Adapte toutes les valeurs numériques e
       throw new Error(errMsg);
     }
 
-    const data = await response.json();
-    const rawText = data.content?.[0]?.text || '';
+    const rawText = await response.text();
 
     setAIProgress(85, '⏳ Remplissage de tous les champs…');
 
@@ -1458,7 +1421,6 @@ Remplace les "…" par le contenu réel. Adapte toutes les valeurs numériques e
 
 /* ── INIT ────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  loadApiKey();
   generateReport();
 });
 </script>
